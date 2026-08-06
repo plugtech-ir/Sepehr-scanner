@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sepehr Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #121212; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; user-select: none; }
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="p-4 pb-20">
+    <div class="max-w-md mx-auto">
+        <!-- هدر برنامه -->
+        <div class="text-center mb-8 mt-4">
+            <h1 class="text-3xl font-bold tracking-wider text-white mb-1">SEPEHR</h1>
+            <h2 class="text-sm font-light text-gray-400 tracking-widest">SCANNER</h2>
+            <p class="text-xs text-gray-500 mt-2">به یاد جاویدنام سپهر ابراهیمی 🕊️</p>
+        </div>
+        
+        <!-- دکمه اسکن -->
+        <button id="scanBtn" class="w-full bg-white text-black hover:bg-gray-200 font-bold py-4 px-4 rounded-2xl mb-6 transition-all shadow-lg active:scale-95">
+            شروع اسکن آی‌پی
+        </button>
+
+        <!-- لیست نتایج -->
+        <div id="results" class="space-y-3">
+            <div class="text-center text-gray-500 text-sm mt-10" id="statusText">
+                برای پیدا کردن آی‌پی‌های تمیز کلودفلر، روی دکمه بالا کلیک کنید.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { invoke } = window.__TAURI__.core;
+        
+        document.getElementById('scanBtn').addEventListener('click', async () => {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="text-center text-yellow-400 mt-10 animate-pulse">در حال اسکن... لطفاً صبر کنید</div>';
+            
+            try {
+                const ips = await invoke('scan_ips');
+                resultsDiv.innerHTML = ''; 
+                
+                if (ips.length === 0) {
+                    resultsDiv.innerHTML = '<div class="text-center text-red-400 mt-10">آی‌پی پیدا نشد!</div>';
+                    return;
+                }
+
+                ips.forEach(result => {
+                    const star = result.is_official ? '<span class="text-yellow-400 text-xl" title="رسمی">⭐</span>' : '';
+                    
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-800 rounded-lg p-4 flex justify-between items-center shadow-md mb-2';
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-green-400 font-bold text-lg" dir="ltr">${result.ip}</span>
+                                ${star}
+                            </div>
+                            <div class="text-gray-400 text-sm mt-1">Ping: ${result.ping}ms</div>
+                        </div>
+                        <div class="relative">
+                            <button class="text-gray-400 hover:text-white p-2 text-2xl" onclick="toggleMenu('${result.ip}')">⋮</button>
+                            <div id="menu-${result.ip}" class="absolute left-0 mt-2 w-40 bg-gray-700 rounded shadow-lg hidden z-10 border border-gray-600">
+                                <button onclick="testSite('${result.ip}', 'www.instagram.com')" class="block w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-600 border-b border-gray-600">تست اینستاگرام</button>
+                                <button onclick="testSite('${result.ip}', 'www.youtube.com')" class="block w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-600 border-b border-gray-600">تست یوتیوب</button>
+                                <button onclick="testSite('${result.ip}', 'web.telegram.org')" class="block w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-600 border-b border-gray-600">تست تلگرام</button>
+                                <button onclick="testSite('${result.ip}', 'x.com')" class="block w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-600">تست X</button>
+                            </div>
+                        </div>
+                    `;
+                    resultsDiv.appendChild(card);
+                });
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="text-center text-red-500 mt-10">خطا: ${error}</div>`;
+            }
+        });
+
+        function toggleMenu(ip) {
+            // بستن بقیه منوها
+            document.querySelectorAll('[id^="menu-"]').forEach(el => {
+                if(el.id !== `menu-${ip}`) el.classList.add('hidden');
+            });
+            const menu = document.getElementById(`menu-${ip}`);
+            menu.classList.toggle('hidden');
+        }
+
+        async function testSite(ip, target) {
+            toggleMenu(ip);
+            alert(`در حال تست ${target}...\nلطفاً چند ثانیه صبر کنید.`);
+            try {
+                const ping = await invoke('test_target', { ip: ip, target: target });
+                alert(`✅ پینگ ${target}:\n${ping} میلی‌ثانیه`);
+            } catch (error) {
+                alert(`❌ خطا در اتصال به ${target}`);
+            }
+        }
+    </script>
+</body>
+</html>
