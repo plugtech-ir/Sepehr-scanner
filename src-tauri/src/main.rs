@@ -5,7 +5,6 @@ use std::io::{Write, Read};
 use std::net::{TcpStream, SocketAddr};
 use std::time::{Duration, Instant};
 
-// ساختار اطلاعات هر آی‌پی
 #[derive(Serialize)]
 struct ScanResult {
     ip: String,
@@ -13,7 +12,6 @@ struct ScanResult {
     is_official: bool,
 }
 
-// تابع تشخیص آی‌پی رسمی کلودفلر
 fn is_official_cf(ip: &str) -> bool {
     let prefixes = [
         "173.245.", "103.21.", "103.22.", "103.31.", "141.101.", "108.162.", 
@@ -24,10 +22,8 @@ fn is_official_cf(ip: &str) -> bool {
     prefixes.iter().any(|&p| ip.starts_with(p))
 }
 
-// دستور اسکن آی‌پی‌ها
 #[tauri::command]
 fn scan_ips() -> Vec<ScanResult> {
-    // لیست نمونه آی‌پی‌ها (بعداً می‌توانی این لیست را از یک فایل بخوانی یا رنج کامل بدهی)
     let ips = vec![
         "104.17.2.3", "104.18.5.6", "162.159.192.1", "188.114.97.3",
         "104.21.3.4", "172.64.1.2", "1.1.1.1", "8.8.8.8"
@@ -38,7 +34,6 @@ fn scan_ips() -> Vec<ScanResult> {
     for ip in ips {
         if let Ok(addr) = format!("{}:443", ip).parse::<SocketAddr>() {
             let start = Instant::now();
-            // تست پینگ با اتصال TCP (بسیار سبک و سریع)
             if TcpStream::connect_timeout(&addr, Duration::from_secs(2)).is_ok() {
                 results.push(ScanResult {
                     ip: ip.to_string(),
@@ -49,31 +44,35 @@ fn scan_ips() -> Vec<ScanResult> {
         }
     }
     
-    results.sort_by_key(|r| r.ping); // مرتب‌سازی بر اساس کمترین پینگ
+    results.sort_by_key(|r| r.ping);
     results
 }
 
-// دستور تست سرعت برای سایت‌های خاص (اینستاگرام، یوتیوب و...)
 #[tauri::command]
 fn test_target(ip: String, target: String) -> Result<u128, String> {
     let addr: SocketAddr = format!("{}:80", ip).parse().map_err(|e| e.to_string())?;
     let start = Instant::now();
     
-    // ارسال درخواست مستقیم به آی‌پی با هدر سایت هدف (بدون نیاز به کتابخانه‌های سنگین)
     let mut stream = TcpStream::connect_timeout(&addr, Duration::from_secs(3)).map_err(|e| e.to_string())?;
     let request = format!("GET / HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n", target);
     
     stream.write_all(request.as_bytes()).map_err(|e| e.to_string())?;
     
     let mut buffer = [0; 128];
-    let _ = stream.read(&mut buffer); // خواندن جواب اولیه
+    let _ = stream.read(&mut buffer);
     
     Ok(start.elapsed().as_millis())
 }
 
-fn main() {
+// این بخش برای اجرای بدون مشکل روی گوشی اندروید اضافه شد
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![scan_ips, test_target])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn main() {
+    run();
 }
